@@ -1,7 +1,6 @@
 // ipcHandlers.ts
 
-import { ipcMain, shell, dialog } from "electron"
-import { randomBytes } from "crypto"
+import { ipcMain, shell } from "electron"
 import { IIpcHandlerDeps } from "./main"
 import { configHelper } from "./ConfigHelper"
 
@@ -21,17 +20,19 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
     return configHelper.hasApiKey();
   })
   
-  ipcMain.handle("validate-api-key", async (_event, apiKey) => {
-    // First check the format
-    if (!configHelper.isValidApiKeyFormat(apiKey)) {
+  ipcMain.handle("validate-api-key", async (_event, apiKey: string, provider?: any, baseUrl?: string) => {
+    if (!apiKey && provider !== "custom") {
+      return { valid: false, error: "API key is required" };
+    }
+    if (apiKey && !configHelper.isValidApiKeyFormat(apiKey, provider)) {
+      const providerName = provider === "openai" ? "OpenAI" : provider === "gemini" ? "Gemini" : provider === "anthropic" ? "Anthropic" : "Custom";
       return { 
         valid: false, 
-        error: "Invalid API key format. OpenAI API keys start with 'sk-'" 
+        error: `Invalid ${providerName} API key format.` 
       };
     }
     
-    // Then test the API key with OpenAI
-    const result = await configHelper.testApiKey(apiKey);
+    const result = await configHelper.testApiKey(apiKey, provider, baseUrl);
     return result;
   })
 
@@ -189,7 +190,7 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
   })
   
   // Open external URL handler
-  ipcMain.handle("openLink", (event, url: string) => {
+  const handleOpenExternal = (_event: any, url: string) => {
     try {
       console.log(`Opening external URL: ${url}`);
       shell.openExternal(url);
@@ -198,7 +199,10 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
       console.error(`Error opening URL ${url}:`, error);
       return { success: false, error: `Failed to open URL: ${error}` };
     }
-  })
+  };
+
+  ipcMain.handle("openLink", handleOpenExternal);
+  ipcMain.handle("openExternal", handleOpenExternal);
 
   // Settings portal handler
   ipcMain.handle("open-settings-portal", () => {

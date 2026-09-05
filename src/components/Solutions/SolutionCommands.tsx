@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react"
 import { useToast } from "../../contexts/toast"
 import { Screenshot } from "../../types/screenshots"
-import { supabase } from "../../lib/supabase"
 import { LanguageSelector } from "../shared/LanguageSelector"
 import { COMMAND_KEY } from "../../utils/platform"
 
@@ -10,22 +9,25 @@ export interface SolutionCommandsProps {
   isProcessing: boolean
   screenshots?: Screenshot[]
   extraScreenshots?: Screenshot[]
-  credits: number
+  credits?: number
   currentLanguage: string
   setLanguage: (language: string) => void
 }
 
 const handleSignOut = async () => {
   try {
-    // Clear any local storage or electron-specific data first
     localStorage.clear()
     sessionStorage.clear()
-
-    // Then sign out from Supabase
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    await window.electronAPI.updateConfig({
+      apiKey: '',
+      openaiApiKey: '',
+      geminiApiKey: '',
+      anthropicApiKey: '',
+      customApiKey: ''
+    })
+    window.location.reload()
   } catch (err) {
-    console.error("Error signing out:", err)
+    console.error("Error resetting settings:", err)
   }
 }
 
@@ -33,7 +35,6 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   onTooltipVisibilityChange,
   isProcessing,
   extraScreenshots = [],
-  credits,
   currentLanguage,
   setLanguage
 }) => {
@@ -419,7 +420,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                       {/* API Key Settings */}
                       <div className="mb-3 px-2 space-y-1">
                         <div className="flex items-center justify-between text-[13px] font-medium text-white/90">
-                          <span>OpenAI API Settings</span>
+                          <span>AI Provider Settings</span>
                           <button
                             className="bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-[11px]"
                             onClick={() => window.electronAPI.openSettingsPortal()}
@@ -449,7 +450,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                             <line x1="21" y1="12" x2="9" y2="12" />
                           </svg>
                         </div>
-                        Log Out
+                        Reset Settings
                       </button>
                     </div>
                   </div>

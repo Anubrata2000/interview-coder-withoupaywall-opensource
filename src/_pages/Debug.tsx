@@ -8,6 +8,8 @@ import SolutionCommands from "../components/Solutions/SolutionCommands"
 import { Screenshot } from "../types/screenshots"
 import { ComplexitySection, ContentSection } from "./Solutions"
 import { useToast } from "../contexts/toast"
+import { getSyntaxHighlighterLanguage } from "../constants/languages"
+import { FormattedSolutionData } from "../types/solutions"
 
 const CodeSection = ({
   title,
@@ -21,7 +23,7 @@ const CodeSection = ({
   currentLanguage: string
 }) => (
   <div className="space-y-2">
-    <h2 className="text-[13px] font-medium text-white tracking-wide"></h2>
+    <h2 className="text-[13px] font-medium text-white tracking-wide">{title}</h2>
     {isLoading ? (
       <div className="space-y-1.5">
         <div className="mt-4 flex">
@@ -34,7 +36,7 @@ const CodeSection = ({
       <div className="w-full">
         <SyntaxHighlighter
           showLineNumbers
-          language={currentLanguage == "golang" ? "go" : currentLanguage}
+          language={getSyntaxHighlighterLanguage(currentLanguage)}
           style={dracula}
           customStyle={{
             maxWidth: "100%",
@@ -149,7 +151,7 @@ const Debug: React.FC<DebugProps> = ({
     const cleanupFunctions = [
       window.electronAPI.onScreenshotTaken(() => refetch()),
       window.electronAPI.onResetView(() => refetch()),
-      window.electronAPI.onDebugSuccess((data) => {
+      window.electronAPI.onDebugSuccess((data: FormattedSolutionData) => {
         console.log("Debug success event received with data:", data);
         queryClient.setQueryData(["new_solution"], data);
         
@@ -168,10 +170,10 @@ const Debug: React.FC<DebugProps> = ({
           } else if (data.debug_analysis.includes('\n')) {
             // Try to find bullet points or numbered lists
             const lines = data.debug_analysis.split('\n');
-            const bulletPoints = lines.filter(line => 
+            const bulletPoints = lines.filter((line: string) => 
               line.trim().match(/^[\d*\-•]+\s/) || 
-              line.trim().match(/^[A-Z][\d\.\)\:]/) ||
-              line.includes(':') && line.length < 100
+              line.trim().match(/^[A-Z][\d.) :]/) ||
+              (line.includes(':') && line.length < 100)
             );
             
             if (bulletPoints.length > 0) {
@@ -332,118 +334,112 @@ const Debug: React.FC<DebugProps> = ({
                 <div className="w-full bg-black/30 rounded-md p-4 text-[13px] leading-[1.4] text-gray-100 whitespace-pre-wrap overflow-auto max-h-[600px]">
                   {/* Process the debug analysis text by sections and lines */}
                   {(() => {
-                    // First identify key sections based on common patterns in the debug output
-                    const sections = [];
-                    let currentSection = { title: '', content: [] };
-                    
-                    // Split by possible section headers (### or ##)
-                    const mainSections = debugAnalysis.split(/(?=^#{1,3}\s|^\*\*\*|^\s*[A-Z][\w\s]+\s*$)/m);
-                    
-                    // Filter out empty sections and process each one
-                    mainSections.filter(Boolean).forEach(sectionText => {
-                      // First line might be a header
-                      const lines = sectionText.split('\n');
-                      let title = '';
-                      let startLineIndex = 0;
-                      
-                      // Check if first line is a header
+                    const sections: { title: string; content: string[] }[] = []
+                    const mainSections = debugAnalysis.split(/(?=^#{1,3}\s|^\*\*\*|^\s*[A-Z][\w\s]+\s*$)/m)
+
+                    mainSections.filter(Boolean).forEach((sectionText: string) => {
+                      const lines = sectionText.split('\n')
+                      let title = ''
+                      let startLineIndex = 0
+
                       if (lines[0] && (lines[0].startsWith('#') || lines[0].startsWith('**') || 
-                          lines[0].match(/^[A-Z][\w\s]+$/) || lines[0].includes('Issues') || 
+                          /^[A-Z][\w\s]+$/.test(lines[0]) || lines[0].includes('Issues') || 
                           lines[0].includes('Improvements') || lines[0].includes('Optimizations'))) {
-                        title = lines[0].replace(/^#+\s*|\*\*/g, '');
-                        startLineIndex = 1;
+                        title = lines[0].replace(/^#+\s*|\*\*/g, '')
+                        startLineIndex = 1
                       }
-                      
-                      // Add the section
+
                       sections.push({
                         title,
                         content: lines.slice(startLineIndex).filter(Boolean)
-                      });
-                    });
-                    
-                    // Render the processed sections
-                    return sections.map((section, sectionIndex) => (
-                      <div key={sectionIndex} className="mb-6">
-                        {section.title && (
-                          <div className="font-bold text-white/90 text-[14px] mb-2 pb-1 border-b border-white/10">
-                            {section.title}
-                          </div>
-                        )}
-                        <div className="pl-1">
-                          {section.content.map((line, lineIndex) => {
-                            // Handle code blocks - detect full code blocks
-                            if (line.trim().startsWith('```')) {
-                              // If we find the start of a code block, collect all lines until the end
-                              if (line.trim() === '```' || line.trim().startsWith('```')) {
-                                // Find end of this code block
-                                const codeBlockEndIndex = section.content.findIndex(
-                                  (l, i) => i > lineIndex && l.trim() === '```'
-                                );
-                                
-                                if (codeBlockEndIndex > lineIndex) {
-                                  // Extract language if specified
-                                  const langMatch = line.trim().match(/```(\w+)/);
-                                  const language = langMatch ? langMatch[1] : '';
-                                  
-                                  // Get the code content
-                                  const codeContent = section.content
-                                    .slice(lineIndex + 1, codeBlockEndIndex)
-                                    .join('\n');
-                                  
-                                  // Skip ahead in our loop
-                                  lineIndex = codeBlockEndIndex;
-                                  
-                                  return (
-                                    <div key={lineIndex} className="font-mono text-xs bg-black/50 p-3 my-2 rounded overflow-x-auto">
-                                      {codeContent}
-                                    </div>
-                                  );
-                                }
-                              }
-                            }
-                            
-                            // Handle bullet points
-                            if (line.trim().match(/^[\-*•]\s/) || line.trim().match(/^\d+\.\s/)) {
-                              return (
-                                <div key={lineIndex} className="flex items-start gap-2 my-1.5">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400/80 mt-2 shrink-0" />
-                                  <div className="flex-1">
-                                    {line.replace(/^[\-*•]\s|^\d+\.\s/, '')}
+                      })
+                    })
+
+                    return sections.map((section, sectionIndex: number) => {
+                      type Block = 
+                        | { type: 'code'; code: string; language?: string }
+                        | { type: 'bullet'; text: string }
+                        | { type: 'header'; text: string }
+                        | { type: 'text'; text: string }
+
+                      const blocks: Block[] = []
+                      let i = 0
+                      while (i < section.content.length) {
+                        const line = section.content[i]
+                        const trimmed = line.trim()
+                        if (trimmed.startsWith('```')) {
+                          const langMatch = trimmed.match(/^```(\w*)/)
+                          const language = langMatch ? langMatch[1] : ''
+                          const codeLines: string[] = []
+                          i++
+                          while (i < section.content.length && !section.content[i].trim().startsWith('```')) {
+                            codeLines.push(section.content[i])
+                            i++
+                          }
+                          if (i < section.content.length) i++
+                          blocks.push({ type: 'code', code: codeLines.join('\n'), language })
+                        } else if (/^[-*•]\s/.test(trimmed) || /^\d+\.\s/.test(trimmed)) {
+                          blocks.push({ type: 'bullet', text: trimmed.replace(/^[-*•]\s|^\d+\.\s/, '') })
+                          i++
+                        } else if (/^#+\s/.test(trimmed) || (/^[A-Z][\w\s]+:/.test(trimmed) && trimmed.length < 60)) {
+                          blocks.push({ type: 'header', text: trimmed.replace(/^#+\s+/, '') })
+                          i++
+                        } else {
+                          blocks.push({ type: 'text', text: line })
+                          i++
+                        }
+                      }
+
+                      return (
+                        <div key={sectionIndex} className="mb-6">
+                          {section.title && (
+                            <div className="font-bold text-white/90 text-[14px] mb-2 pb-1 border-b border-white/10">
+                              {section.title}
+                            </div>
+                          )}
+                          <div className="pl-1">
+                            {blocks.map((block, blockIndex: number) => {
+                              if (block.type === 'code') {
+                                return (
+                                  <div key={blockIndex} className="font-mono text-xs bg-black/50 p-3 my-2 rounded overflow-x-auto">
+                                    {block.code}
                                   </div>
-                                </div>
-                              );
-                            }
-                            
-                            // Handle inline code
-                            if (line.includes('`')) {
-                              const parts = line.split(/(`[^`]+`)/g);
-                              return (
-                                <div key={lineIndex} className="my-1.5">
-                                  {parts.map((part, partIndex) => {
-                                    if (part.startsWith('`') && part.endsWith('`')) {
-                                      return <span key={partIndex} className="font-mono bg-black/30 px-1 py-0.5 rounded">{part.slice(1, -1)}</span>;
-                                    }
-                                    return <span key={partIndex}>{part}</span>;
-                                  })}
-                                </div>
-                              );
-                            }
-                            
-                            // Handle sub-headers
-                            if (line.trim().match(/^#+\s/) || (line.trim().match(/^[A-Z][\w\s]+:/) && line.length < 60)) {
-                              return (
-                                <div key={lineIndex} className="font-semibold text-white/80 mt-3 mb-1">
-                                  {line.replace(/^#+\s+/, '')}
-                                </div>
-                              );
-                            }
-                            
-                            // Regular text
-                            return <div key={lineIndex} className="my-1.5">{line}</div>;
-                          })}
+                                )
+                              }
+                              if (block.type === 'bullet') {
+                                return (
+                                  <div key={blockIndex} className="flex items-start gap-2 my-1.5">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400/80 mt-2 shrink-0" />
+                                    <div className="flex-1">{block.text}</div>
+                                  </div>
+                                )
+                              }
+                              if (block.type === 'header') {
+                                return (
+                                  <div key={blockIndex} className="font-semibold text-white/80 mt-3 mb-1">
+                                    {block.text}
+                                  </div>
+                                )
+                              }
+                              if (block.text.includes('`')) {
+                                const parts = block.text.split(/(`[^`]+`)/g)
+                                return (
+                                  <div key={blockIndex} className="my-1.5">
+                                    {parts.map((part: string, partIndex: number) => {
+                                      if (part.startsWith('`') && part.endsWith('`')) {
+                                        return <span key={partIndex} className="font-mono bg-black/30 px-1 py-0.5 rounded">{part.slice(1, -1)}</span>
+                                      }
+                                      return <span key={partIndex}>{part}</span>
+                                    })}
+                                  </div>
+                                )
+                              }
+                              return <div key={blockIndex} className="my-1.5">{block.text}</div>
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    ));
+                      )
+                    })
                   })()} 
                 </div>
               )}

@@ -1,8 +1,9 @@
 // Solutions.tsx
 import React, { useState, useEffect, useRef } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
+import { getSyntaxHighlighterLanguage } from "../constants/languages"
 
 import ScreenshotQueue from "../components/Queue/ScreenshotQueue"
 
@@ -83,7 +84,7 @@ const SolutionSection = ({
           </button>
           <SyntaxHighlighter
             showLineNumbers
-            language={currentLanguage == "golang" ? "go" : currentLanguage}
+            language={getSyntaxHighlighterLanguage(currentLanguage)}
             style={dracula}
             customStyle={{
               maxWidth: "100%",
@@ -300,7 +301,7 @@ const Solutions: React.FC<SolutionsProps> = ({
         setTimeComplexityData(null)
         setSpaceComplexityData(null)
       }),
-      window.electronAPI.onProblemExtracted((data) => {
+      window.electronAPI.onProblemExtracted((data: any) => {
         queryClient.setQueryData(["problem_statement"], data)
       }),
       //if there was an error processing the initial solution
@@ -323,7 +324,7 @@ const Solutions: React.FC<SolutionsProps> = ({
         console.error("Processing error:", error)
       }),
       //when the initial solution is generated, we'll set the solution data to that
-      window.electronAPI.onSolutionSuccess((data) => {
+      window.electronAPI.onSolutionSuccess((data: any) => {
         if (!data) {
           console.warn("Received empty or invalid solution data")
           return
@@ -346,13 +347,14 @@ const Solutions: React.FC<SolutionsProps> = ({
         const fetchScreenshots = async () => {
           try {
             const existing = await window.electronAPI.getScreenshots()
-            const screenshots =
-              existing.previews?.map((p) => ({
+            const screenshots = (Array.isArray(existing) ? existing : []).map(
+              (p: { path: string; preview: string }) => ({
                 id: p.path,
                 path: p.path,
                 preview: p.preview,
                 timestamp: Date.now()
-              })) || []
+              })
+            )
             setExtraScreenshots(screenshots)
           } catch (error) {
             console.error("Error loading extra screenshots:", error)
@@ -370,7 +372,7 @@ const Solutions: React.FC<SolutionsProps> = ({
         setDebugProcessing(true)
       }),
       //the first time debugging works, we'll set the view to debug and populate the cache with the data
-      window.electronAPI.onDebugSuccess((data) => {
+      window.electronAPI.onDebugSuccess((data: any) => {
         queryClient.setQueryData(["new_solution"], data)
         setDebugProcessing(false)
       }),

@@ -1,6 +1,5 @@
 console.log("Preload script starting...")
 import { contextBridge, ipcRenderer } from "electron"
-const { shell } = require("electron")
 
 export const PROCESSING_EVENTS = {
   //global states
@@ -147,7 +146,7 @@ const electronAPI = {
     }
   },
   // External URL handler
-  openLink: (url: string) => shell.openExternal(url),
+  openLink: (url: string) => ipcRenderer.invoke("openExternal", url),
   triggerScreenshot: () => ipcRenderer.invoke("trigger-screenshot"),
   triggerProcessScreenshots: () =>
     ipcRenderer.invoke("trigger-process-screenshots"),
@@ -203,9 +202,9 @@ const electronAPI = {
   },
   getPlatform: () => process.platform,
   
-  // New methods for OpenAI API integration
+  // Configuration and AI integration
   getConfig: () => ipcRenderer.invoke("get-config"),
-  updateConfig: (config: { apiKey?: string; model?: string; language?: string; opacity?: number }) => 
+  updateConfig: (config: any) => 
     ipcRenderer.invoke("update-config", config),
   onShowSettings: (callback: () => void) => {
     const subscription = () => callback()
@@ -215,8 +214,8 @@ const electronAPI = {
     }
   },
   checkApiKey: () => ipcRenderer.invoke("check-api-key"),
-  validateApiKey: (apiKey: string) => 
-    ipcRenderer.invoke("validate-api-key", apiKey),
+  validateApiKey: (apiKey: string, provider?: string, baseUrl?: string) => 
+    ipcRenderer.invoke("validate-api-key", apiKey, provider, baseUrl),
   openExternal: (url: string) => 
     ipcRenderer.invoke("openExternal", url),
   onApiKeyInvalid: (callback: () => void) => {

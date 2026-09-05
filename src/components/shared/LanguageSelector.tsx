@@ -1,4 +1,5 @@
 import React from "react"
+import { LANGUAGES } from "../../constants/languages"
 
 interface LanguageSelectorProps {
   currentLanguage: string
@@ -40,17 +41,11 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
           className="bg-black/80 text-white/90 rounded px-2 py-1 text-sm outline-none border border-white/10 focus:border-white/20"
           style={{ WebkitAppearance: 'menulist' }}
         >
-          <option value="python" className="bg-black text-white">Python</option>
-          <option value="javascript" className="bg-black text-white">JavaScript</option>
-          <option value="java" className="bg-black text-white">Java</option>
-          <option value="golang" className="bg-black text-white">Go</option>
-          <option value="cpp" className="bg-black text-white">C++</option>
-          <option value="swift" className="bg-black text-white">Swift</option>
-          <option value="kotlin" className="bg-black text-white">Kotlin</option>
-          <option value="ruby" className="bg-black text-white">Ruby</option>
-          <option value="sql" className="bg-black text-white">SQL</option>
-          <option value="r" className="bg-black text-white">R</option>
-          <option value="csharp" className="bg-black text-white">C#</option>
+          {LANGUAGES.map((lang) => (
+            <option key={lang.value} value={lang.value} className="bg-black text-white">
+              {lang.label}
+            </option>
+          ))}
         </select>
       </div>
     </div>

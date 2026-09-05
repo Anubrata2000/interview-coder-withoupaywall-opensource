@@ -9,7 +9,12 @@ import { Screenshot } from "../types/screenshots"
 async function fetchScreenshots(): Promise<Screenshot[]> {
   try {
     const existing = await window.electronAPI.getScreenshots()
-    return existing
+    return (Array.isArray(existing) ? existing : []).map((p) => ({
+      id: p.path,
+      path: p.path,
+      preview: p.preview,
+      timestamp: Date.now()
+    }))
   } catch (error) {
     console.error("Error loading screenshots:", error)
     throw error
@@ -18,14 +23,14 @@ async function fetchScreenshots(): Promise<Screenshot[]> {
 
 interface QueueProps {
   setView: (view: "queue" | "solutions" | "debug") => void
-  credits: number
+  credits?: number
   currentLanguage: string
   setLanguage: (language: string) => void
 }
 
 const Queue: React.FC<QueueProps> = ({
   setView,
-  credits,
+  credits = 100,
   currentLanguage,
   setLanguage
 }) => {
@@ -37,7 +42,6 @@ const Queue: React.FC<QueueProps> = ({
 
   const {
     data: screenshots = [],
-    isLoading,
     refetch
   } = useQuery<Screenshot[]>({
     queryKey: ["screenshots"],
@@ -95,9 +99,7 @@ const Queue: React.FC<QueueProps> = ({
       window.electronAPI.onResetView(() => refetch()),
       window.electronAPI.onDeleteLastScreenshot(async () => {
         if (screenshots.length > 0) {
-          const lastScreenshot = screenshots[screenshots.length - 1];
           await handleDeleteScreenshot(screenshots.length - 1);
-          // Toast removed as requested
         } else {
           showToast("No Screenshots", "There are no screenshots to delete", "neutral");
         }
@@ -132,10 +134,6 @@ const Queue: React.FC<QueueProps> = ({
     setTooltipHeight(height)
   }
 
-  const handleOpenSettings = () => {
-    window.electronAPI.openSettingsPortal();
-  };
-  
   return (
     <div ref={contentRef} className={`bg-transparent w-1/2`}>
       <div className="px-4 py-3">

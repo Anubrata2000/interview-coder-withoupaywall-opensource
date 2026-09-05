@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, shell, ipcMain } from "electron"
+import { app, BrowserWindow, screen, shell } from "electron"
 import path from "path"
 import fs from "fs"
 import { initializeIpcHandlers } from "./ipcHandlers"
@@ -178,7 +178,7 @@ const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
   app.quit()
 } else {
-  app.on("second-instance", (event, commandLine) => {
+  app.on("second-instance", (_event, _commandLine) => {
     // Someone tried to run a second instance, we should focus our window.
     if (state.mainWindow) {
       if (state.mainWindow.isMinimized()) state.mainWindow.restore()
@@ -268,7 +268,7 @@ async function createWindow(): Promise<void> {
       // Fallback to local file if dev server is not available
       const indexPath = path.join(__dirname, "../dist/index.html")
       console.log("Falling back to:", indexPath)
-      if (fs.existsSync(indexPath)) {
+      if (fs.existsSync(indexPath) && state.mainWindow) {
         state.mainWindow.loadFile(indexPath)
       } else {
         console.error("Could not find index.html in dist folder")
@@ -279,7 +279,7 @@ async function createWindow(): Promise<void> {
     const indexPath = path.join(__dirname, "../dist/index.html")
     console.log("Loading production build:", indexPath)
     
-    if (fs.existsSync(indexPath)) {
+    if (fs.existsSync(indexPath) && state.mainWindow) {
       state.mainWindow.loadFile(indexPath)
     } else {
       console.error("Could not find index.html in dist folder")
@@ -296,8 +296,8 @@ async function createWindow(): Promise<void> {
     try {
       const parsedURL = new URL(url);
       const hostname = parsedURL.hostname;
-      const allowedHosts = ["google.com", "supabase.co"];
-      if (allowedHosts.includes(hostname) || hostname.endsWith(".google.com") || hostname.endsWith(".supabase.co")) {
+      const allowedHosts = ["google.com", "openai.com", "anthropic.com", "github.com"];
+      if (allowedHosts.includes(hostname) || hostname.endsWith(".google.com") || hostname.endsWith(".openai.com") || hostname.endsWith(".anthropic.com") || hostname.endsWith(".github.com")) {
         shell.openExternal(url);
         return { action: "deny" }; // Do not open this URL in a new Electron window
       }
@@ -389,7 +389,7 @@ function handleWindowClosed(): void {
 
 // Window visibility functions
 function hideMainWindow(): void {
-  if (!state.mainWindow?.isDestroyed()) {
+  if (state.mainWindow && !state.mainWindow.isDestroyed()) {
     const bounds = state.mainWindow.getBounds();
     state.windowPosition = { x: bounds.x, y: bounds.y };
     state.windowSize = { width: bounds.width, height: bounds.height };
@@ -401,7 +401,7 @@ function hideMainWindow(): void {
 }
 
 function showMainWindow(): void {
-  if (!state.mainWindow?.isDestroyed()) {
+  if (state.mainWindow && !state.mainWindow.isDestroyed()) {
     if (state.windowPosition && state.windowSize) {
       state.mainWindow.setBounds({
         ...state.windowPosition,
@@ -472,7 +472,7 @@ function moveWindowVertical(updateFn: (y: number) => number): void {
 
 // Window dimension functions
 function setWindowDimensions(width: number, height: number): void {
-  if (!state.mainWindow?.isDestroyed()) {
+  if (state.mainWindow && !state.mainWindow.isDestroyed()) {
     const [currentX, currentY] = state.mainWindow.getPosition()
     const primaryDisplay = screen.getPrimaryDisplay()
     const workArea = primaryDisplay.workAreaSize

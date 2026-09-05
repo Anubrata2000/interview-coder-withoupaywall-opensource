@@ -43,9 +43,6 @@ function App() {
   const [currentLanguage, setCurrentLanguage] = useState<string>("python")
   const [isInitialized, setIsInitialized] = useState(false)
   const [hasApiKey, setHasApiKey] = useState(false)
-  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
-  // Note: Model selection is now handled via separate extraction/solution/debugging model settings
-
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   // Set unlimited credits
@@ -182,11 +179,11 @@ function App() {
     // Event listeners for process events
     const onApiKeyInvalid = () => {
       showToast(
-        "API Key Invalid",
-        "Your OpenAI API key appears to be invalid or has insufficient credits",
+        "API Key Required or Invalid",
+        "Please check your API key and provider settings.",
         "error"
       )
-      setApiKeyDialogOpen(true)
+      setIsSettingsOpen(true)
     }
 
     // Setup API key invalid listener
@@ -196,7 +193,6 @@ function App() {
     const unsubscribeSolutionSuccess = window.electronAPI.onSolutionSuccess(
       () => {
         console.log("Solution success - no credits deducted in this version")
-        // No credit deduction in this version
       }
     )
 
@@ -219,22 +215,6 @@ function App() {
     console.log('Settings dialog state changed:', open);
     setIsSettingsOpen(open);
   }, []);
-
-  const handleApiKeySave = useCallback(async (apiKey: string) => {
-    try {
-      await window.electronAPI.updateConfig({ apiKey })
-      setHasApiKey(true)
-      showToast("Success", "API key saved successfully", "success")
-      
-      // Reload app after a short delay to reinitialize with the new API key
-      setTimeout(() => {
-        window.location.reload()
-      }, 1500)
-    } catch (error) {
-      console.error("Failed to save API key:", error)
-      showToast("Error", "Failed to save API key", "error")
-    }
-  }, [showToast])
 
   return (
     <QueryClientProvider client={queryClient}>

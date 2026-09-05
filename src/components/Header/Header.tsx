@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Settings, LogOut, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useToast } from '../../contexts/toast';
+import { LANGUAGES } from '../../constants/languages';
 
 interface HeaderProps {
   currentLanguage: string;
@@ -9,39 +10,31 @@ interface HeaderProps {
   onOpenSettings: () => void;
 }
 
-// Available programming languages
-const LANGUAGES = [
-  { value: 'python', label: 'Python' },
-  { value: 'javascript', label: 'JavaScript' },
-  { value: 'java', label: 'Java' },
-  { value: 'cpp', label: 'C++' },
-  { value: 'csharp', label: 'C#' },
-  { value: 'go', label: 'Go' },
-  { value: 'rust', label: 'Rust' },
-  { value: 'typescript', label: 'TypeScript' },
-];
-
 export function Header({ currentLanguage, setLanguage, onOpenSettings }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { showToast } = useToast();
 
-  // Handle logout - clear API key and reload app
+  // Handle logout - clear API keys and reload app
   const handleLogout = async () => {
     try {
-      // Update config with empty API key
+      localStorage.clear();
+      sessionStorage.clear();
       await window.electronAPI.updateConfig({
         apiKey: '',
+        openaiApiKey: '',
+        geminiApiKey: '',
+        anthropicApiKey: '',
+        customApiKey: ''
       });
       
-      showToast('Success', 'Logged out successfully', 'success');
+      showToast('Success', 'Settings reset successfully', 'success');
       
-      // Reload the app after a short delay
       setTimeout(() => {
         window.location.reload();
-      }, 1500);
+      }, 1000);
     } catch (error) {
-      console.error('Error logging out:', error);
-      showToast('Error', 'Failed to log out', 'error');
+      console.error('Error resetting settings:', error);
+      showToast('Error', 'Failed to reset settings', 'error');
     }
   };
 

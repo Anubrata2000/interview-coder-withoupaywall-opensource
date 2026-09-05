@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useRef } from "react"
-import { createRoot } from "react-dom/client"
-
 import { useToast } from "../../contexts/toast"
-import { LanguageSelector } from "../shared/LanguageSelector"
 import { COMMAND_KEY } from "../../utils/platform"
+import { getNextLanguage, getPreviousLanguage, LANGUAGES } from "../../constants/languages"
 
 interface QueueCommandsProps {
   onTooltipVisibilityChange: (visible: boolean, height: number) => void
   screenshotCount?: number
-  credits: number
+  credits?: number
   currentLanguage: string
   setLanguage: (language: string) => void
 }
@@ -16,7 +14,6 @@ interface QueueCommandsProps {
 const QueueCommands: React.FC<QueueCommandsProps> = ({
   onTooltipVisibilityChange,
   screenshotCount = 0,
-  credits,
   currentLanguage,
   setLanguage
 }) => {
@@ -24,55 +21,13 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   const tooltipRef = useRef<HTMLDivElement>(null)
   const { showToast } = useToast()
 
-  // Extract the repeated language selection logic into a separate function
-  const extractLanguagesAndUpdate = (direction?: 'next' | 'prev') => {
-    // Create a hidden instance of LanguageSelector to extract languages
-    const hiddenRenderContainer = document.createElement('div');
-    hiddenRenderContainer.style.position = 'absolute';
-    hiddenRenderContainer.style.left = '-9999px';
-    document.body.appendChild(hiddenRenderContainer);
-    
-    // Create a root and render the LanguageSelector temporarily
-    const root = createRoot(hiddenRenderContainer);
-    root.render(
-      <LanguageSelector 
-        currentLanguage={currentLanguage} 
-        setLanguage={() => {}}
-      />
-    );
-    
-    // Use a small delay to ensure the component has rendered
-    // 50ms is generally enough for React to complete a render cycle
-    setTimeout(() => {
-      // Extract options from the rendered select element
-      const selectElement = hiddenRenderContainer.querySelector('select');
-      if (selectElement) {
-        const options = Array.from(selectElement.options);
-        const values = options.map(opt => opt.value);
-        
-        // Find current language index
-        const currentIndex = values.indexOf(currentLanguage);
-        let newIndex = currentIndex;
-        
-        if (direction === 'prev') {
-          // Go to previous language
-          newIndex = (currentIndex - 1 + values.length) % values.length;
-        } else {
-          // Default to next language
-          newIndex = (currentIndex + 1) % values.length;
-        }
-        
-        if (newIndex !== currentIndex) {
-          setLanguage(values[newIndex]);
-          window.electronAPI.updateConfig({ language: values[newIndex] });
-        }
-      }
-      
-      // Clean up
-      root.unmount();
-      document.body.removeChild(hiddenRenderContainer);
-    }, 50);
-  };
+  const cycleLanguage = (direction: 'next' | 'prev' = 'next') => {
+    const nextLang = direction === 'prev' 
+      ? getPreviousLanguage(currentLanguage) 
+      : getNextLanguage(currentLanguage)
+    setLanguage(nextLang)
+    window.electronAPI.updateConfig({ language: nextLang })
+  }
 
   useEffect(() => {
     let tooltipHeight = 0
@@ -84,24 +39,22 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
   const handleSignOut = async () => {
     try {
-      // Clear any local storage or electron-specific data
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      // Clear the API key in the configuration
+      localStorage.clear()
+      sessionStorage.clear()
       await window.electronAPI.updateConfig({
         apiKey: '',
-      });
-      
-      showToast('Success', 'Logged out successfully', 'success');
-      
-      // Reload the app after a short delay
+        openaiApiKey: '',
+        geminiApiKey: '',
+        anthropicApiKey: '',
+        customApiKey: ''
+      })
+      showToast('Success', 'Settings reset successfully', 'success')
       setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+        window.location.reload()
+      }, 1000)
     } catch (err) {
-      console.error("Error logging out:", err);
-      showToast('Error', 'Failed to log out', 'error');
+      console.error("Error resetting settings:", err)
+      showToast('Error', 'Failed to reset settings', 'error')
     }
   }
 
@@ -159,9 +112,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           {/* Solve Command */}
           {screenshotCount > 0 && (
             <div
-              className={`flex flex-col cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors ${
-                credits <= 0 ? "opacity-50 cursor-not-allowed" : ""
-              }`}
+              className="flex flex-col cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors"
               onClick={async () => {
 
                 try {
@@ -434,19 +385,21 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                       <div className="mb-3 px-2">
                         <div 
                           className="flex items-center justify-between cursor-pointer hover:bg-white/10 rounded px-2 py-1 transition-colors"
-                          onClick={() => extractLanguagesAndUpdate('next')}
+                          onClick={() => cycleLanguage('next')}
                           tabIndex={0}
                           onKeyDown={(e) => {
                             if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-                              extractLanguagesAndUpdate('prev');
+                              cycleLanguage('prev')
                             } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-                              extractLanguagesAndUpdate('next');
+                              cycleLanguage('next')
                             }
                           }}
                         >
                           <span className="text-[11px] text-white/70">Language</span>
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px] text-white/90">{currentLanguage}</span>
+                            <span className="text-[11px] text-white/90">
+                              {LANGUAGES.find((l) => l.value === currentLanguage)?.label || currentLanguage}
+                            </span>
                             <div className="text-white/40 text-[8px]">
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
                                 <path d="M7 13l5 5 5-5M7 6l5 5 5-5"/>
@@ -459,7 +412,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                       {/* API Key Settings */}
                       <div className="mb-3 px-2 space-y-1">
                         <div className="flex items-center justify-between text-[13px] font-medium text-white/90">
-                          <span>OpenAI API Settings</span>
+                          <span>AI Provider Settings</span>
                           <button
                             className="bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-[11px]"
                             onClick={() => window.electronAPI.openSettingsPortal()}
@@ -489,7 +442,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                             <line x1="21" y1="12" x2="9" y2="12" />
                           </svg>
                         </div>
-                        Log Out
+                        Reset Settings
                       </button>
                     </div>
                   </div>
